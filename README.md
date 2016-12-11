@@ -1,10 +1,14 @@
-# Particle 
+[![Build Status](https://travis-ci.org/njones/particle.png?branch=master)](https://travis-ci.org/njones/particle) [![GoDoc](https://godoc.org/github.com/njones/particle?status.svg)](https://godoc.org/github.com/njones/particle)
+
+# Particle
 
 Particle is a go library that provides an Encoder/Decoder and Marshaler/Unmarshaler for frontmatter files.
 
 A frontmatter file contains a block of metadata at the beginning of the file. This block is usually delimited by a `---` or `+++`, as defined by [Jekyll](http://jekyllrb.com/docs/frontmatter/), however JSON may be included without a specific delimiter.
 
 The Particle library can decode and encode frontmatter metadata blocks that are YAML, TOML or JSON. It is also a generic library so it's easy to define new custom block types to decode and encode as well.
+
+See the [GoDoc](https://godoc.org/github.com/njones/particle) for more information.
 
 ## Installation
 
