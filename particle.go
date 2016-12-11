@@ -30,11 +30,19 @@ const (
 var (
 	// YAMLEncoding is the encoding for standard frontmatter files
 	// that use YAML as the metadata format.
-	YAMLEncoding = NewEncoding(WithDelimiter(YAMLDelimiter), WithMarshalFunc(yaml.Marshal), WithUnmarshalFunc(yaml.Unmarshal))
+	YAMLEncoding = NewEncoding(
+		WithDelimiter(YAMLDelimiter),
+		WithMarshalFunc(yaml.Marshal),
+		WithUnmarshalFunc(yaml.Unmarshal),
+	)
 
 	// TOMLEncoding is the encoding for frontmatter files that use
 	// TOML as the metadata format.
-	TOMLEncoding = NewEncoding(WithDelimiter(TOMLDelimiter), WithMarshalFunc(tomlMarshal), WithUnmarshalFunc(toml.Unmarshal))
+	TOMLEncoding = NewEncoding(
+		WithDelimiter(TOMLDelimiter),
+		WithMarshalFunc(tomlMarshal),
+		WithUnmarshalFunc(toml.Unmarshal),
+	)
 
 	// JSONEncoding is the encoding for frontmatter files that use
 	// JSON as the metadata format, note there is no delimiter, just
@@ -141,7 +149,7 @@ func NewEncoder(e *Encoding, w io.Writer, v interface{}) (io.Writer, error) {
 	if err != nil {
 		return nil, err
 	}
-	o.Write(f) // write frontmatter first
+	o.Write(f) // write frontmatter first to the encoder
 
 	return o, nil
 }
@@ -176,9 +184,10 @@ func NewEncoding(options ...EncodingOptionFunc) *Encoding {
 		}
 	}
 
-	e.fmBuf = make(map[string][]byte)
+	e.fmBuf = make(map[string][]byte) // initialize the caching map
 	e.start, e.end, e.ioSplitFunc = e.inSplitFunc(e.delimiter)
 	if e.outputDelimiter {
+		// add to wrap the frontmatter metadata only if explicitly set to
 		e.output.start, e.output.end = e.start, e.end
 	}
 	return e
@@ -250,6 +259,8 @@ func (e *Encoding) EncodeLen(src []byte, v interface{}) int {
 
 // hashFrontmatter returns a very simple hash of the interface v with data.
 func (e *Encoding) hashFrontmatter(v interface{}) string {
+	// this hash is pretty slow and weak, but it should be good enough for our
+	// purposes in this function.
 	h := md5.Sum([]byte(fmt.Sprintf("%#v", v)))
 	return string(h[:])
 }
@@ -273,6 +284,7 @@ func (e *Encoding) encodeFrontmatter(v interface{}) ([]byte, error) {
 		start, end = e.start+"\n", e.end
 	}
 
+	// the lock here is to make this function concurrency safe.
 	e.fmBufMutex.Lock()
 	e.fmBuf[h] = append(append([]byte(start), f...), []byte(end+"\n\n")...)
 	e.fmBufMutex.Unlock()
@@ -282,6 +294,10 @@ func (e *Encoding) encodeFrontmatter(v interface{}) ([]byte, error) {
 // readUnmarshal takes the encoded frontmatter metadata from reader r and
 // unmarshals the data to interface v.
 func (e *Encoding) readUnmarshal(r io.Reader, v interface{}) error {
+
+	// collects all of the frontmatter bytes from the reader, because
+	// marshaling (some encodings don't have a stream encoder) needs to
+	// have all of the bytes.
 	f, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
@@ -310,6 +326,8 @@ func (e *Encoding) readFrom(r io.Reader) (frontmatter, content io.Reader) {
 
 		for scnr.Scan() {
 			txt := scnr.Text()
+
+			// checks if the first scan picks up a delimiter
 			if txt == e.delimiter {
 				io.WriteString(mw, e.output.start)
 				for scnr.Scan() {
@@ -325,6 +343,9 @@ func (e *Encoding) readFrom(r io.Reader) (frontmatter, content io.Reader) {
 				mw.Close()
 				io.WriteString(cw, txt)
 			}
+
+			// the frontmatter (mw) pipe will be closed before this point
+			// so scan the rest to the content reader
 			for scnr.Scan() {
 				txt := scnr.Text()
 				io.WriteString(cw, txt)
@@ -340,6 +361,7 @@ func (e *Encoding) readFrom(r io.Reader) (frontmatter, content io.Reader) {
 // bufio SplitFunc that will split out the frontmatter encoded metadata from
 // the io.Reader stream.
 func SingleTokenDelimiter(delim string) (start string, end string, fn bufio.SplitFunc) {
+	// TODO: refactor this to return a struct
 	return delim, delim, baseSplitter([]byte(delim+"\n"), []byte("\n"+delim+"\n"), []byte(delim))
 }
 
@@ -352,6 +374,8 @@ func SpaceSeparatedTokenDelimiters(delim string) (start string, end string, fn b
 		panic("The delimiter token does not split into exactly two")
 	}
 	start, end = delims[0], delims[1]
+
+	// TODO: refactor this to return a struct
 	return start, end, baseSplitter([]byte(start+"\n"), []byte("\n"+end+"\n"), []byte(delim))
 }
 
@@ -366,6 +390,7 @@ func baseSplitter(topDelimiter, botDelimiter, retDelimiter []byte) bufio.SplitFu
 		botDelimiterLen = len(botDelimiter)
 	)
 
+	// this function does a lookahead to see if the next x bytes contain the delimiter
 	checkDelimiterBytes := func(delim, data []byte) bool {
 		if len(data) >= len(delim) {
 			return string(delim) == string(data[:len(delim)])
@@ -378,6 +403,8 @@ func baseSplitter(topDelimiter, botDelimiter, retDelimiter []byte) bufio.SplitFu
 			return 0, nil, nil
 		}
 
+		// firstTime will check the first character to see if we should be
+		// splitting out frontmatter metadata
 		if firstTime {
 			firstTime = false
 			if checkDelimiterBytes(topDelimiter, data) {
