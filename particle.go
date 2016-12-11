@@ -220,8 +220,10 @@ func (e *Encoding) readFrom(r io.Reader) (frontmatter, content io.Reader) {
 	cr, cw := io.Pipe()
 
 	go func() {
+		e.start, e.end, e.ioSplitFunc = e.inSplitFunc(e.delimiter) // reset each time it's run
+
 		defer mw.Close() // if the matter writer is never written to...
-		defer cw.Close() // if data witer is never written to...
+		defer cw.Close() // if data writer is never written to...
 
 		scnr := bufio.NewScanner(r)
 		scnr.Split(e.ioSplitFunc)
