@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"sync"
+	"unicode"
 
 	"encoding/json"
 	"github.com/BurntSushi/toml"
@@ -392,8 +393,9 @@ func SpaceSeparatedTokenDelimiters(delim string) Splitter {
 // a frontmatter delimiter has been determined.
 func baseSplitter(topDelimiter, botDelimiter, retDelimiter []byte) bufio.SplitFunc {
 	var (
-		firstTime            bool = true
-		checkForBotDelimiter bool
+		firstTime                         bool = true
+		checkForBotDelimiter              bool
+		skipFirstWhitespaceAfterDelimiter bool
 	)
 
 	// this function does a lookahead to see if the next x bytes contain the delimiter
@@ -422,8 +424,17 @@ func baseSplitter(topDelimiter, botDelimiter, retDelimiter []byte) bufio.SplitFu
 		if checkForBotDelimiter {
 			if checkDelimiterBytes(botDelimiter, data) {
 				checkForBotDelimiter = false
+				skipFirstWhitespaceAfterDelimiter = true
 				return len(botDelimiter), retDelimiter, nil
 			}
+		}
+
+		// Consume the first whitespace after the metadata if necessary
+		if skipFirstWhitespaceAfterDelimiter {
+			if unicode.IsSpace(rune(data[0])) {
+				return 1, nil, nil
+			}
+			skipFirstWhitespaceAfterDelimiter = false
 		}
 
 		return 1, data[:1], nil

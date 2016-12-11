@@ -13,6 +13,7 @@ func ExampleNewDecoder() {
 	r := strings.NewReader(`---
 name: A NewDecoder Example
 ---
+
 Content...`)
 
 	// Do the decoding...
@@ -40,6 +41,7 @@ func ExampleDecodeString() {
 	src := `+++
 name = "A DecodeString Example"
 +++
+
 Content...`
 
 	// Do the decoding...
