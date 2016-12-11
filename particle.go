@@ -57,10 +57,15 @@ var (
 	)
 )
 
+type Splitter struct {
+	Start, End string
+	SplitFunc  bufio.SplitFunc
+}
+
 // The SplitFunc type returns the open and close delimiters, along
 // with a bufio.SplitFunc that will be used to parse the frontmatter
 // file.
-type SplitFunc func(string) (string, string, bufio.SplitFunc)
+type SplitFunc func(string) Splitter
 
 // The MarshalFunc type is the standard unmarshal function that maps a
 // struct or map to frontmatter encoded byte string.
@@ -185,7 +190,8 @@ func NewEncoding(options ...EncodingOptionFunc) *Encoding {
 	}
 
 	e.fmBuf = make(map[string][]byte) // initialize the caching map
-	e.start, e.end, e.ioSplitFunc = e.inSplitFunc(e.delimiter)
+	split := e.inSplitFunc(e.delimiter)
+	e.start, e.end, e.ioSplitFunc = split.Start, split.End, split.SplitFunc
 	if e.outputDelimiter {
 		// add to wrap the frontmatter metadata only if explicitly set to
 		e.output.start, e.output.end = e.start, e.end
@@ -316,13 +322,11 @@ func (e *Encoding) readFrom(r io.Reader) (frontmatter, content io.Reader) {
 	cr, cw := io.Pipe()
 
 	go func() {
-		e.start, e.end, e.ioSplitFunc = e.inSplitFunc(e.delimiter) // reset each time it's run
-
 		defer mw.Close() // if the matter writer is never written to...
 		defer cw.Close() // if data writer is never written to...
 
 		scnr := bufio.NewScanner(r)
-		scnr.Split(e.ioSplitFunc)
+		scnr.Split(e.inSplitFunc(e.delimiter).SplitFunc)
 
 		for scnr.Scan() {
 			txt := scnr.Text()
@@ -360,23 +364,28 @@ func (e *Encoding) readFrom(r io.Reader) (frontmatter, content io.Reader) {
 // SingleTokenDelimiter returns the start and end delimiter along with the
 // bufio SplitFunc that will split out the frontmatter encoded metadata from
 // the io.Reader stream.
-func SingleTokenDelimiter(delim string) (start string, end string, fn bufio.SplitFunc) {
-	// TODO: refactor this to return a struct
-	return delim, delim, baseSplitter([]byte(delim+"\n"), []byte("\n"+delim+"\n"), []byte(delim))
+func SingleTokenDelimiter(delim string) Splitter {
+	return Splitter{
+		Start:     delim,
+		End:       delim,
+		SplitFunc: baseSplitter([]byte(delim+"\n"), []byte("\n"+delim+"\n"), []byte(delim)),
+	}
 }
 
 // SpaceSeparatedTokenDelimiters returns the start and end delimiter which is
 // split on a space from string delim. The bufio.SplitFunc will split out the
 // frontmatter encoded data from the stream.
-func SpaceSeparatedTokenDelimiters(delim string) (start string, end string, fn bufio.SplitFunc) {
+func SpaceSeparatedTokenDelimiters(delim string) Splitter {
 	delims := strings.Split(delim, " ")
 	if len(delims) != 2 {
 		panic("The delimiter token does not split into exactly two")
 	}
-	start, end = delims[0], delims[1]
-
-	// TODO: refactor this to return a struct
-	return start, end, baseSplitter([]byte(start+"\n"), []byte("\n"+end+"\n"), []byte(delim))
+	start, end := delims[0], delims[1]
+	return Splitter{
+		Start:     start,
+		End:       end,
+		SplitFunc: baseSplitter([]byte(start+"\n"), []byte("\n"+end+"\n"), []byte(delim)),
+	}
 }
 
 // baseSplitter reads the characters of a steam and split returns a token when
@@ -385,9 +394,6 @@ func baseSplitter(topDelimiter, botDelimiter, retDelimiter []byte) bufio.SplitFu
 	var (
 		firstTime            bool = true
 		checkForBotDelimiter bool
-
-		topDelimiterLen = len(topDelimiter)
-		botDelimiterLen = len(botDelimiter)
 	)
 
 	// this function does a lookahead to see if the next x bytes contain the delimiter
@@ -409,14 +415,14 @@ func baseSplitter(topDelimiter, botDelimiter, retDelimiter []byte) bufio.SplitFu
 			firstTime = false
 			if checkDelimiterBytes(topDelimiter, data) {
 				checkForBotDelimiter = true
-				return topDelimiterLen, retDelimiter, nil
+				return len(topDelimiter), retDelimiter, nil
 			}
 		}
 
 		if checkForBotDelimiter {
 			if checkDelimiterBytes(botDelimiter, data) {
 				checkForBotDelimiter = false
-				return botDelimiterLen, retDelimiter, nil
+				return len(botDelimiter), retDelimiter, nil
 			}
 		}
 
