@@ -34,7 +34,7 @@ Content...`)
 	// content: Content...
 }
 
-func ExampleDecodeString() {
+func ExampleEncoding_DecodeString() {
 
 	// Setup the struct and reader...
 	v := struct{ Name string }{}
@@ -77,11 +77,12 @@ func ExampleNewEncoder() {
 	// Writing to the writer that we got back from the NewEncoder function
 	out.Write([]byte("Content..."))
 
+	// view the raw bytes
 	fmt.Printf("content: % x", w.String())
 	// output: content: 2d 2d 2d 0a 6e 61 6d 65 3a 20 41 20 4e 65 77 45 6e 63 6f 64 65 72 20 45 78 61 6d 70 6c 65 0a 2d 2d 2d 0a 0a 43 6f 6e 74 65 6e 74 2e 2e 2e
 }
 
-func ExampleEncodeToString() {
+func ExampleEncoding_EncodeToString() {
 
 	// Setup the struct and reader...
 	v := struct{ Name string }{Name: "A EncodeToString Example"}
@@ -90,6 +91,7 @@ func ExampleEncodeToString() {
 	// Do the decoding...
 	content := JSONEncoding.EncodeToString(src, &v)
 
+	// view the raw bytes
 	fmt.Printf("content: % x", content)
 	// output: content: 7b 0a 09 22 4e 61 6d 65 22 3a 20 22 41 20 45 6e 63 6f 64 65 54 6f 53 74 72 69 6e 67 20 45 78 61 6d 70 6c 65 22 0a 7d 0a 0a 43 6f 6e 74 65 6e 74 2e 2e 2e
 

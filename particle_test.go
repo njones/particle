@@ -49,7 +49,7 @@ var wantContent = "This is an example file.\n"
 var wantMetaData = testMetaData{Name: "John Doe", Date: "10-10-2016"}
 
 // TODO: Test Large File
-// TODO: Test Bad fontmater block
+// TODO: Test Bad fontmatter block
 // TODO: Test Unicode in the Fontmatter Block
 
 func TestCustomEncoding(t *testing.T) {

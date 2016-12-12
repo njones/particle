@@ -28,36 +28,38 @@ const (
 	JSONDelimiterPair = "{ }"
 )
 
-var (
-	// YAMLEncoding is the encoding for standard frontmatter files
-	// that use YAML as the metadata format.
-	YAMLEncoding = NewEncoding(
-		WithDelimiter(YAMLDelimiter),
-		WithMarshalFunc(yaml.Marshal),
-		WithUnmarshalFunc(yaml.Unmarshal),
-	)
-
-	// TOMLEncoding is the encoding for frontmatter files that use
-	// TOML as the metadata format.
-	TOMLEncoding = NewEncoding(
-		WithDelimiter(TOMLDelimiter),
-		WithMarshalFunc(tomlMarshal),
-		WithUnmarshalFunc(toml.Unmarshal),
-	)
-
-	// JSONEncoding is the encoding for frontmatter files that use
-	// JSON as the metadata format, note there is no delimiter, just
-	// use a single open and close curly bracket on a line to
-	// designate the JSON frontmatter metadata block.
-	JSONEncoding = NewEncoding(
-		WithDelimiter(JSONDelimiterPair),
-		WithMarshalFunc(jsonMarshal),
-		WithUnmarshalFunc(json.Unmarshal),
-		WithSplitFunc(SpaceSeparatedTokenDelimiters),
-		WithIncludeDelimiter(),
-	)
+// YAMLEncoding is the encoding for standard frontmatter files that use YAML
+// as the metadata format.
+var YAMLEncoding = NewEncoding(
+	WithDelimiter(YAMLDelimiter),
+	WithMarshalFunc(yaml.Marshal),
+	WithUnmarshalFunc(yaml.Unmarshal),
 )
 
+// TOMLEncoding is the encoding for frontmatter files that use TOML as the
+// metadata format.
+var TOMLEncoding = NewEncoding(
+	WithDelimiter(TOMLDelimiter),
+	WithMarshalFunc(tomlMarshal),
+	WithUnmarshalFunc(toml.Unmarshal),
+)
+
+// JSONEncoding is the encoding for frontmatter files that use JSON as the
+// metadata format, note there is no delimiter, just use a single open and
+// close curly bracket on a line to designate the JSON frontmatter metadata
+// block.
+var JSONEncoding = NewEncoding(
+	WithDelimiter(JSONDelimiterPair),
+	WithMarshalFunc(jsonMarshal),
+	WithUnmarshalFunc(json.Unmarshal),
+	WithSplitFunc(SpaceSeparatedTokenDelimiters),
+	WithIncludeDelimiter(),
+)
+
+// Splitter holds the start and end delimiter used for splitting out
+// frontmatter encoded metadata from a stream. It holds the bufio.SplitFunc to
+// scan over the input. The baseSplitter default function should be enough for
+// most use cases.
 type Splitter struct {
 	Start, End string
 	SplitFunc  bufio.SplitFunc
@@ -362,9 +364,7 @@ func (e *Encoding) readFrom(r io.Reader) (frontmatter, content io.Reader) {
 	return mr, cr
 }
 
-// SingleTokenDelimiter returns the start and end delimiter along with the
-// bufio SplitFunc that will split out the frontmatter encoded metadata from
-// the io.Reader stream.
+// SingleTokenDelimiter returns the start and end delimiter as delim.
 func SingleTokenDelimiter(delim string) Splitter {
 	return Splitter{
 		Start:     delim,
@@ -374,8 +374,7 @@ func SingleTokenDelimiter(delim string) Splitter {
 }
 
 // SpaceSeparatedTokenDelimiters returns the start and end delimiter which is
-// split on a space from string delim. The bufio.SplitFunc will split out the
-// frontmatter encoded data from the stream.
+// split on a space from delim.
 func SpaceSeparatedTokenDelimiters(delim string) Splitter {
 	delims := strings.Split(delim, " ")
 	if len(delims) != 2 {
